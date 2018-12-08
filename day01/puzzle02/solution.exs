@@ -1,100 +1,49 @@
+# Solution from  https://www.twitch.tv/videos/343661380
 defmodule Puzzle do
-  # If frequences are not integer convert it
-  # Scan the list, passing the total
-  # Filter scanned list to find the first duplicate value
-  # If not found, scan the list again but use the last value from previously scanned list as accumulator
+  def repeated_frequency(file_stream) do
+    file_stream
+    |> Stream.map(fn line ->
+      {integer, _leftover} = Integer.parse(line)
+      integer
+    end)
+    |> Stream.cycle()
+    |> Enum.reduce_while({0, []}, fn x, {current_frequency, seen_frequencies} ->
+      new_frequency = current_frequency + x
 
-  def process(frequencies, prevAggregated, accumalated) do
-    {original, agg} = aggregate(frequencies, accumalated)
-
-    {original, prevAggregated ++ agg}
-     |> find_duplicated
+      if new_frequency in seen_frequencies do
+        {:halt, new_frequency}
+      else
+      {:cont, {new_frequency, [new_frequency | seen_frequencies]}}
+      end
+    end)
   end
+end
 
-  def process(frequencies) do
-    frequencies
-     |> convert
-     |> aggregate(0)
-     |> find_duplicated
-  end
+case System.argv() do
+  ["--test"] ->
+    ExUnit.start()
 
-  def process() do
-    get_frequency_changes()
-     |> convert
-     |> aggregate(0)
-     |> find_duplicated
-  end
+    defmodule PuzzleTest do
+      use ExUnit.Case
 
-  def find_duplicated({originals, aggregatedOnes}) do
-    IO.inspect(aggregatedOnes)
-    duplicatedOnes = Enum.filter(aggregatedOnes, fn f -> Enum.count(aggregatedOnes, fn acc -> acc == f end) > 1 end)
+      import Puzzle
 
-    if (duplicatedOnes == []) do
-      process(originals, aggregatedOnes, Enum.at(aggregatedOnes, Enum.count(aggregatedOnes) - 1))
-    else
-      IO.inspect(Enum.at(duplicatedOnes, 0))
-      Enum.at(duplicatedOnes, 0)
+      test "final_frequency" do
+      assert repeated_frequency([
+        "+1\n",
+        "-2\n",
+        "+3\n",
+        "+1\n"]) == 2
+      end
     end
-  end
+  [input_file] ->
 
-  def aggregate(frequencies, acc), do: {frequencies, testF(frequencies, acc)}
+    defmodule PuzzleSolution do
 
-  def testF(frequencies, 0) do
-    [head | tail] = Enum.scan(frequencies, &(&1 + &2))
-    tail
-  end
-
-  def testF(frequencies, acc) do
-    Enum.scan(frequencies, acc, &(&1 + &2))
-  end
-
-  def convert(frequencies) do
-    frequencies
-    |> Enum.map(fn frequency -> String.to_integer(frequency) end)
-  end
-
-  def get_frequency_changes do
-    "../input.txt"
-    |> Path.expand(__DIR__)
-    |> File.read!()
-    |> String.trim()
-    |> String.split(~r/\n/)
-  end
+    import Puzzle
+      input_file
+      |> File.stream!([], :line)
+      |> Puzzle.repeated_frequency()
+      |> IO.puts
+    end
 end
-
-# Tests
-
-ExUnit.start()
-
-defmodule PuzzleTest do
-  use ExUnit.Case
-
-  import Puzzle
-
-  # test "test case 1" do
-  #   assert process(["+1", "-1"]) == 0
-  # end
-
-  # test "test case 2" do
-  #   assert process(["+1", "-2", "+3", "+1", "+1", "-2"]) == 2
-  # end
-
-  # test "test case 3" do
-  #     # 3 6 10 8 4 -> 7 10 14 12 8
-  #   assert process(["+3", "+3", "+4", "-2", "-4"]) == 10
-  # end
-
-  # test "test case 4" do
-  #   assert process(["-6", "+3", "+8", "+5", "-6"]) == 5
-  # end
-
-  # test "test case 5" do
-  #   # 14 12 5 1 -> 8 15 13 6 2 -> 9 16 14 7 3
-  #   assert process(["+7", "+7", "-2", "-7", "-4"]) == 14
-  # end
-
-  test "find solution" do
-    assert process() == 2
-  end
-end
-
